@@ -1,0 +1,20 @@
+# Flutter
+.app/build/
+.app/.dart_tool/
+.app/.packages
+.app/ios/Pods/
+.app/android/.gradle/
+.app/android/app/build/
+.app/pubspec.lock
+
+# Dotnet
+.backend/**/bin/
+.backend/**/obj/
+
+# General
+.env
+storage/
+Files/
+.idea/
+.vscode/
+.DS_Store
