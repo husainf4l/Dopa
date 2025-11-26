@@ -7,13 +7,22 @@ class ApiClient {
   ApiClient()
       : _dio = Dio(
           BaseOptions(
-            baseUrl: const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:5081/api'),
+            baseUrl: const String.fromEnvironment(
+              'API_BASE_URL',
+              defaultValue: 'http://192.168.1.125:8085/api',
+            ),
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 10),
           ),
         ) {
     final storage = SecureStorageService(const FlutterSecureStorage());
     _dio.interceptors.add(_AuthInterceptor(storage));
+    _dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      error: true,
+      logPrint: (obj) => print('[API] $obj'),
+    ));
   }
 
   final Dio _dio;

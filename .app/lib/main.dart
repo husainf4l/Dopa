@@ -10,7 +10,8 @@ final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  // Firebase is optional during local development; enable once configs are provided.
+  // await Firebase.initializeApp();
   const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);

@@ -3,5 +3,10 @@ import '../models/appointment.dart';
 import '../services/appointment_service.dart';
 
 final appointmentProvider = FutureProvider.autoDispose<List<Appointment>>((ref) async {
-  return AppointmentService.createDefault().fetchAppointments();
+  try {
+    return await AppointmentService.createDefault().fetchAppointments();
+  } catch (e) {
+    print('[AppointmentProvider] Error fetching appointments: $e');
+    return <Appointment>[];
+  }
 });

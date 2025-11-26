@@ -19,12 +19,20 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (FirebaseApp.DefaultInstance is null)
+var firebaseCredentialsPath = Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS");
+if (!string.IsNullOrWhiteSpace(firebaseCredentialsPath) && File.Exists(firebaseCredentialsPath))
 {
-    FirebaseApp.Create(new AppOptions
+    if (FirebaseApp.DefaultInstance is null)
     {
-        Credential = GoogleCredential.GetApplicationDefault()
-    });
+        FirebaseApp.Create(new AppOptions
+        {
+            Credential = GoogleCredential.FromFile(firebaseCredentialsPath)
+        });
+    }
+}
+else
+{
+    Log.Warning("GOOGLE_APPLICATION_CREDENTIALS not configured. Firebase notifications disabled.");
 }
 
 if (app.Environment.IsDevelopment())
@@ -42,7 +50,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    await db.Database.EnsureCreatedAsync();
 }
 
 app.Run();

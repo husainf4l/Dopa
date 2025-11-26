@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
@@ -27,7 +28,17 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _authService.login(email: email, password: password);
       state = AuthState(user: user);
     } catch (e) {
-      state = AuthState(error: e.toString());
+      String errorMsg = 'Login failed';
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errorMsg = 'Connection timeout. Check your network.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMsg = 'Cannot connect to server. Check API URL.';
+        } else if (e.response != null) {
+          errorMsg = e.response?.data['message'] ?? 'Server error: ${e.response?.statusCode}';
+        }
+      }
+      state = AuthState(error: errorMsg);
     }
   }
 
@@ -37,7 +48,17 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _authService.register(email: email, password: password, name: name);
       state = AuthState(user: user);
     } catch (e) {
-      state = AuthState(error: e.toString());
+      String errorMsg = 'Registration failed';
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errorMsg = 'Connection timeout. Check your network.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errorMsg = 'Cannot connect to server. Check API URL.';
+        } else if (e.response != null) {
+          errorMsg = e.response?.data['message'] ?? 'Server error: ${e.response?.statusCode}';
+        }
+      }
+      state = AuthState(error: errorMsg);
     }
   }
 }

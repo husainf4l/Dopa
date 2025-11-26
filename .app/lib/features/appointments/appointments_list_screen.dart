@@ -4,30 +4,247 @@ import 'package:go_router/go_router.dart';
 import '../../providers/appointment_provider.dart';
 
 class AppointmentsListScreen extends ConsumerWidget {
-  const AppointmentsListScreen({super.key});
+  const AppointmentsListScreen({super.key, this.showAppBar = true});
+  
+  final bool showAppBar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncAppointments = ref.watch(appointmentProvider);
+    
     return Scaffold(
-      appBar: AppBar(title: const Text('Appointments')),
-      body: asyncAppointments.when(
-        data: (items) => ListView.builder(
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final appointment = items[index];
-            return ListTile(
-              title: Text(appointment.doctorName),
-              subtitle: Text('${appointment.location} • ${appointment.date}'),
-            );
-          },
+      backgroundColor: const Color(0xFFF7F7F7),
+      appBar: showAppBar ? AppBar(
+        title: const Text('Appointments'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF8175D1)),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFF8175D1),
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed: $error')),
+      ) : null,
+      body: asyncAppointments.when(
+        data: (items) => SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE6E6E6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8175D1).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month_outlined,
+                        color: Color(0xFF8175D1),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Your Appointments',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF8175D1),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                if (items.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 60),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7F7F7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.calendar_month_outlined,
+                              size: 48,
+                              color: Colors.grey.shade300,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No appointments scheduled',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade400,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap the button below to schedule your first appointment',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...items.map((appointment) => InkWell(
+                    onTap: () async {
+                      final result = await context.push('/home/appointments/edit', extra: appointment);
+                      if (result == true) {
+                        ref.refresh(appointmentProvider);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFEEEEEE)),
+                      ),
+                      child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8175D1).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                color: Color(0xFF8175D1),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    appointment.doctorName,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    appointment.location,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.grey.shade300,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.calendar_today_rounded,
+                                size: 13,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                appointment.date.toLocal().toString().split(' ')[0],
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    ),
+                  )),
+              ],
+            ),
+          ),
+        ),
+        loading: () => const Center(child: CircularProgressIndicator(
+          color: Color(0xFF8175D1),
+        )),
+        error: (error, _) => Center(
+          child: Text(
+            'Failed: $error',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/appointments/create'),
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await context.push('/home/appointments/create');
+          if (result == true) {
+            ref.invalidate(appointmentProvider);
+          }
+        },
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: const Text(
+          'Add Appointment',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
+        backgroundColor: const Color(0xFF8175D1),
+        foregroundColor: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
     );
   }

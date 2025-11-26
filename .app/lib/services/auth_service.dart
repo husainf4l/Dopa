@@ -18,6 +18,7 @@ class AuthService {
       'fullName': name,
     });
     await _persistToken(response.data);
+    await _storageService.saveCredentials(email, password);
     return _profileFromResponse(response.data);
   }
 
@@ -27,10 +28,14 @@ class AuthService {
       'password': password,
     });
     await _persistToken(response.data);
+    await _storageService.saveCredentials(email, password);
     return _profileFromResponse(response.data);
   }
 
-  Future<void> logout() => _storageService.clearToken();
+  Future<void> logout() async {
+    await _storageService.clearToken();
+    await _storageService.clearCredentials();
+  }
 
   Future<void> _persistToken(Map<String, dynamic> json) async {
     final token = AuthToken.fromJson(json);
