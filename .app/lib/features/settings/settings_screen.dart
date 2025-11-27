@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'notifications_settings_screen.dart';
+import 'privacy_settings_screen.dart';
+import 'export_data_settings_screen.dart';
+import 'backup_sync_settings_screen.dart';
+import 'language_settings_screen.dart';
+import 'account_security_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -47,16 +54,46 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-              _buildSettingItem('Notifications', Icons.notifications_outlined),
-              _buildSettingItem('Privacy', Icons.lock_outline),
-              _buildSettingItem('Export Data', Icons.download_outlined),
-              _buildSettingItem('Backup & Sync', Icons.cloud_outlined),
-              _buildSettingItem('Language', Icons.language_outlined),
-              _buildSettingItem('Account Security', Icons.security_outlined),
+              _buildSettingItem(
+                'Notifications',
+                'Manage notification preferences',
+                Icons.notifications_outlined,
+                () => context.push('/home/settings/notifications'),
+              ),
+              _buildSettingItem(
+                'Privacy',
+                'Control data sharing and privacy settings',
+                Icons.lock_outline,
+                () => context.push('/home/settings/privacy'),
+              ),
+              _buildSettingItem(
+                'Export Data',
+                'Download a copy of your personal data',
+                Icons.download_outlined,
+                () => context.push('/home/settings/export-data'),
+              ),
+              _buildSettingItem(
+                'Backup & Sync',
+                'Manage data backup and synchronization',
+                Icons.cloud_outlined,
+                () => context.push('/home/settings/backup-sync'),
+              ),
+              _buildSettingItem(
+                'Language',
+                'Choose your preferred language',
+                Icons.language_outlined,
+                () => context.push('/home/settings/language'),
+              ),
+              _buildSettingItem(
+                'Account Security',
+                'Manage security and authentication settings',
+                Icons.security_outlined,
+                () => context.push('/home/settings/account-security'),
+              ),
               const SizedBox(height: 40),
               Center(
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () => _showSignOutDialog(context),
                   child: const Text(
                     'Sign Out',
                     style: TextStyle(
@@ -74,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingItem(String title, IconData icon) {
+  Widget _buildSettingItem(String title, String subtitle, IconData icon, VoidCallback onTap) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -91,8 +128,46 @@ class SettingsScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
+        ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-        onTap: () {},
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text(
+          'Are you sure you want to sign out? You will need to log in again to access your account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // TODO: Implement actual sign out logic
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Signed out successfully')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Sign Out'),
+          ),
+        ],
       ),
     );
   }

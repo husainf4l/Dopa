@@ -246,6 +246,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                           
                           // Build payload with non-empty values only
                           final payload = <String, dynamic>{
+
+                            
                             'name': _nameController.text.trim(),
                             'startDate': utcStartDate.toIso8601String(),
                           };

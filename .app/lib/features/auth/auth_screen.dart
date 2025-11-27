@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/secure_storage_service.dart';
+import '../../providers/profile_provider.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -83,6 +84,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     // Navigate to home on successful auth
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
       if (next.user != null && previous?.user == null) {
+        // Load profile data after successful authentication
+        ref.read(profileControllerProvider.notifier).loadProfile(next.user!.id);
         // Copy registration credentials to login form for future use
         if (_registerEmail.text.isNotEmpty) {
           _copyRegisterToLogin();

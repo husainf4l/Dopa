@@ -46,6 +46,10 @@ class AuthService {
         id: json['userId'] as String,
         email: json['email'] as String,
         fullName: json['fullName'] as String,
+        dateOfBirth: json['dateOfBirth'] != null ? DateTime.parse(json['dateOfBirth'] as String) : null,
+        phoneNumber: json['phoneNumber'] as String?,
+        bloodType: json['bloodType'] as String?,
+        address: json['address'] as String?,
       );
 
   static AuthService createDefault() => AuthService(ApiClient(), SecureStorageService(const FlutterSecureStorage()));

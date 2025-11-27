@@ -1,1292 +1,982 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../models/medication.dart';
+import '../../models/appointment.dart';
+import '../../models/vaccine_dose.dart';
+import '../../providers/medication_provider.dart';
+import '../../providers/appointment_provider.dart';
+import '../../providers/vaccination_provider.dart';
+import '../../providers/saved_articles_provider.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the providers for real data
+    final medicationsAsync = ref.watch(medicationProvider);
+    final appointmentsAsync = ref.watch(appointmentProvider);
+    final vaccinationsAsync = ref.watch(vaccinationProvider);
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
-  bool _isSidebarOpen = false;
-  late AnimationController _animationController;
-  late Animation<double> _sidebarAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _sidebarAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _toggleSidebar() {
-    setState(() {
-      _isSidebarOpen = !_isSidebarOpen;
-      if (_isSidebarOpen) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
-    });
-  }
-
-  final List<Map<String, dynamic>> _navItems = [
-    {'icon': Icons.home_outlined, 'label': 'Dashboard', 'route': '/home'},
-    {
-      'icon': Icons.medication_liquid_outlined,
-      'label': 'Medications',
-      'route': '/home/medications'
-    },
-    {
-      'icon': Icons.calendar_month_outlined,
-      'label': 'Appointments',
-      'route': '/home/appointments'
-    },
-    {
-      'icon': Icons.verified_user_outlined,
-      'label': 'Vaccinations',
-      'route': '/home/vaccinations'
-    },
-    {
-      'icon': Icons.folder_outlined,
-      'label': 'Medical Records',
-      'route': '/home/records'
-    },
-    {
-      'icon': Icons.menu_book_outlined,
-      'label': 'Resources',
-      'route': '/home/resources'
-    },
-    {
-      'icon': Icons.favorite_border_rounded,
-      'label': 'Emergency Card',
-      'route': '/home/emergency',
-      'highlight': true
-    },
-    {
-      'icon': Icons.people_outline_rounded,
-      'label': 'Family Mode',
-      'route': '/home/family'
-    },
-    {
-      'icon': Icons.lightbulb_outline_rounded,
-      'label': 'Insights',
-      'route': '/home/insights'
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF2F6FF),
       body: SafeArea(
-        child: Stack(
-          children: [
-            // Main Content
-            SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Header
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  // Main Dashboard Card
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: const Color(0xFFE6E6E6), width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildTodayOverview(),
-                        const SizedBox(height: 32),
-                        _buildQuickActions(),
-                        const SizedBox(height: 28),
-                        _buildSectionDivider(),
-                        const SizedBox(height: 28),
-                        _buildMedicationsSection(),
-                        const SizedBox(height: 28),
-                        _buildSectionDivider(),
-                        const SizedBox(height: 28),
-                        _buildAppointmentsSection(),
-                        const SizedBox(height: 28),
-                        _buildSectionDivider(),
-                        const SizedBox(height: 28),
-                        _buildVaccinationsSection(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Header
+              _buildHeader(),
+              const SizedBox(height: 32),
+
+              // Quick Action Tiles
+              _buildQuickActions(),
+              const SizedBox(height: 32),
+
+              // Next Medicine Card
+              medicationsAsync.when(
+                data: (medications) => _buildNextMedicineCard(medications),
+                loading: () => _buildLoadingCard('Loading medications...'),
+                error: (error, stack) => _buildErrorCard('Failed to load medications'),
               ),
-            ),
-            // Overlay
-            if (_isSidebarOpen)
-              GestureDetector(
-                onTap: _toggleSidebar,
-                child: AnimatedBuilder(
-                  animation: _sidebarAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      color: Colors.black
-                          .withOpacity(0.3 * _sidebarAnimation.value),
-                    );
-                  },
-                ),
+              const SizedBox(height: 24),
+
+              // Next Doctor Visit Card
+              appointmentsAsync.when(
+                data: (appointments) => _buildNextDoctorVisitCard(appointments),
+                loading: () => _buildLoadingCard('Loading appointments...'),
+                error: (error, stack) => _buildErrorCard('Failed to load appointments'),
               ),
-            // Animated Sidebar
-            AnimatedBuilder(
-              animation: _sidebarAnimation,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(-280 * (1 - _sidebarAnimation.value), 0),
-                  child: child,
-                );
-              },
-              child: _isSidebarOpen ? _buildSidebar() : const SizedBox(),
-            ),
-          ],
+              const SizedBox(height: 24),
+
+              // Upcoming Vaccinations
+              vaccinationsAsync.when(
+                data: (vaccinations) => _buildUpcomingVaccinations(vaccinations),
+                loading: () => _buildLoadingCard('Loading vaccinations...'),
+                error: (error, stack) => _buildErrorCard('Failed to load vaccinations'),
+              ),
+              const SizedBox(height: 40),
+
+              // Latest Blogs Section
+              _buildLatestBlogsSection(),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Container(
-      width: 260,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(4, 0),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              // Already on home
+              break;
+            case 1:
+              context.push('/home/medications');
+              break;
+            case 2:
+              context.push('/home/appointments');
+              break;
+            case 3:
+              context.push('/home/vaccinations');
+              break;
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF8175D1),
+        unselectedItemColor: Colors.grey[400],
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        elevation: 8,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.medication_rounded),
+            label: 'Medications',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today_rounded),
+            label: 'Appointments',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.vaccines_rounded),
+            label: 'Vaccinations',
           ),
         ],
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Logo Section - Ultra minimal
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'DOPA',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w300,
-                      color: Color(0xFF8175D1),
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: Colors.grey.shade300,
-                      size: 18,
-                    ),
-                    onPressed: _toggleSidebar,
-                    splashRadius: 16,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-            // Thin divider
-            Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              color: const Color(0xFFE8E8E8),
-            ),
-            const SizedBox(height: 12),
-            // Navigation Items
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                itemCount: _navItems.length,
-                itemBuilder: (context, index) {
-                  final item = _navItems[index];
-                  final isSelected = _selectedIndex == index;
-                  final isHighlight = item['highlight'] ?? false;
-                  return _buildNavItem(
-                    icon: item['icon'],
-                    label: item['label'],
-                    isSelected: isSelected,
-                    isHighlight: isHighlight,
-                    onTap: () {
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                      _toggleSidebar();
-                      if (index > 0) {
-                        context.push(item['route']);
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-            // Settings at bottom
-            Container(
-              height: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              color: const Color(0xFFE8E8E8),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: _buildNavItem(
-                icon: Icons.settings_outlined,
-                label: 'Settings',
-                isSelected: false,
-                isHighlight: false,
-                onTap: () {
-                  _toggleSidebar();
-                  context.push('/home/settings');
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required bool isHighlight,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF8175D1)
-                  : isHighlight
-                      ? const Color(0xFFFFF5F5)
-                      : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected
-                      ? Colors.white
-                      : isHighlight
-                          ? const Color(0xFFFF6B6B)
-                          : Colors.grey.shade400,
-                  size: 18,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-                      color: isSelected
-                          ? Colors.white
-                          : isHighlight
-                              ? const Color(0xFFFF6B6B)
-                              : Colors.grey.shade700,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileSection() {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _toggleSidebar();
-            context.push('/home/profile');
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF8175D1),
-                        Color(0xFF9D87E0),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8175D1).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'My Profile',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF8175D1),
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'View & Settings',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF8175D1).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: _toggleSidebar,
-              color: const Color(0xFF8175D1),
-              iconSize: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'DOPA',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0xFF8175D1),
-                    letterSpacing: 2,
-                  ),
-                ),
-                Text(
-                  'Health Management',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[600],
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF8175D1).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.person_outline_rounded),
-              onPressed: () => context.push('/home/profile'),
-              color: const Color(0xFF8175D1),
-              iconSize: 20,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTodayOverview() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Today\'s Overview',
+        // iOS-style status bar area (placeholder)
+        const SizedBox(height: 8),
+        // Date
+        Text(
+          'Monday, 4 September',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF8175D1),
-            letterSpacing: -0.3,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF8A8A8A),
+            letterSpacing: -0.2,
           ),
         ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1.2,
-          children: [
-            _buildStatCard(
-                '3/5', 'Medications\nTaken', Icons.medication_rounded),
-            _buildStatCard(
-                '2:30 PM', 'Next\nAppointment', Icons.calendar_today_rounded),
-            _buildStatCard('1', 'Vaccines\nDue', Icons.vaccines_rounded),
-            _buildStatCard('2', 'Alerts', Icons.notifications_outlined),
-          ],
+        const SizedBox(height: 4),
+        // Today
+        const Text(
+          'Today',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A1A),
+            letterSpacing: -0.5,
+          ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStatCard(String value, String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: const Color(0xFF8175D1), size: 20),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF8175D1),
-            letterSpacing: -0.3,
-          ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1.3,
-          children: [
-            _buildActionTile('Add\nMedication', Icons.add_circle_outline,
-                '/home/medications/create'),
-            _buildActionTile('Add\nAppointment', Icons.event_available_outlined,
-                '/home/appointments/create'),
-            _buildActionTile('Add\nVaccine', Icons.vaccines_outlined,
-                '/home/vaccinations/create'),
-            _buildActionTile(
-                'Add\nDocument', Icons.upload_file_outlined, '/home/records'),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionTile(String label, IconData icon, String route) {
-    return InkWell(
-      onTap: () => context.push(route),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE6E6E6)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: const Color(0xFF8175D1), size: 28),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMedicationsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Medications',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF8175D1),
-                letterSpacing: -0.3,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/home/medications'),
-              child: Text(
-                'View All',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildMedicationCard('Aspirin', '100mg', 'Once daily', true),
-        const SizedBox(height: 12),
-        _buildMedicationCard('Vitamin D', '1000 IU', 'Once daily', false),
-        const SizedBox(height: 12),
-        _buildMedicationCard('Metformin', '500mg', 'Twice daily', true),
-      ],
-    );
-  }
-
-  Widget _buildMedicationCard(
-      String name, String dosage, String frequency, bool taken) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
-      ),
-      child: Row(
+    return Builder(
+      builder: (context) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: taken ? const Color(0xFF8175D1) : Colors.grey[300],
-              shape: BoxShape.circle,
-            ),
+          _buildQuickActionTile(
+            icon: Icons.add_circle_outline_rounded,
+            label: 'Action',
+            onTap: () => context.push('/home/medications/create'),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$dosage • $frequency',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+          _buildQuickActionTile(
+            icon: Icons.folder_open_rounded,
+            label: 'Medical History',
+            onTap: () => context.push('/home/medical-history'),
           ),
-          if (!taken)
-            TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                backgroundColor: const Color(0xFF8175D1).withOpacity(0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Take',
-                style: TextStyle(
-                  color: Color(0xFF8175D1),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _buildQuickActionTile(
+            icon: Icons.article_outlined,
+            label: 'Blogs',
+            onTap: () => context.push('/home/resources'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAppointmentsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildQuickActionTile({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 80,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8175D1).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.calendar_today_rounded,
-                    color: Color(0xFF8175D1),
-                    size: 20,
-                  ),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8175D1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFF8175D1),
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF1A1A1A),
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextMedicineCard(List<Medication> medications) {
+    // Find the next medication that needs to be taken
+    final now = DateTime.now();
+    final upcomingMedications = medications.where((med) {
+      // Check if medication is still active (no end date or end date is in future)
+      if (med.endDate != null && med.endDate!.isBefore(now)) {
+        return false;
+      }
+      // For now, we'll show medications that started today or earlier
+      return med.startDate.isBefore(now) || med.startDate.isAtSameMomentAs(now);
+    }).toList();
+
+    if (upcomingMedications.isEmpty) {
+      return _buildEmptyCard(
+        'No upcoming medications',
+        'Add your medications to see reminders here',
+        Icons.medication_rounded,
+      );
+    }
+
+    // For simplicity, show the first upcoming medication
+    final nextMedication = upcomingMedications.first;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title
+          const Text(
+            'Your Next Medicine',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Medicine name
+          Text(
+            nextMedication.name,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A1A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Dosage
+          Text(
+            nextMedication.dosage,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Divider
+          Container(
+            height: 1,
+            color: const Color(0xFFE4E6EB),
+          ),
+          const SizedBox(height: 16),
+          // Instructions
+          Text(
+            nextMedication.instructions,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF6A6A6A),
+              letterSpacing: -0.2,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextDoctorVisitCard(List<Appointment> appointments) {
+    // Find the next upcoming appointment
+    final now = DateTime.now();
+    final upcomingAppointments = appointments.where((appointment) {
+      return appointment.date.isAfter(now);
+    }).toList();
+
+    // Sort by date (earliest first)
+    upcomingAppointments.sort((a, b) => a.date.compareTo(b.date));
+
+    if (upcomingAppointments.isEmpty) {
+      return _buildEmptyCard(
+        'No upcoming appointments',
+        'Schedule your next doctor visit here',
+        Icons.calendar_today_rounded,
+      );
+    }
+
+    final nextAppointment = upcomingAppointments.first;
+    final daysUntil = nextAppointment.date.difference(now).inDays;
+    final timeUntil = daysUntil == 0 ? 'Today' : daysUntil == 1 ? 'Tomorrow' : '$daysUntil Days';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title
+          const Text(
+            'Your Next Doctor Visit',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Doctor name
+          Text(
+            nextAppointment.doctorName,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A1A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Location
+          Text(
+            nextAppointment.location,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Divider
+          Container(
+            height: 1,
+            color: const Color(0xFFE4E6EB),
+          ),
+          const SizedBox(height: 16),
+          // Timer section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Appointment in',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF8A8A8A),
+                  letterSpacing: -0.2,
                 ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Upcoming Appointments',
-                  style: TextStyle(
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8175D1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  timeUntil,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF8175D1),
                     letterSpacing: -0.3,
                   ),
                 ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpcomingVaccinations(List<VaccineDose> vaccinations) {
+    // Find upcoming vaccinations (not completed yet and scheduled for future)
+    final now = DateTime.now();
+    final upcomingVaccinations = vaccinations.where((vaccination) {
+      return vaccination.completedDate == null && vaccination.scheduledDate.isAfter(now);
+    }).toList();
+
+    // Sort by scheduled date (earliest first)
+    upcomingVaccinations.sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+
+    if (upcomingVaccinations.isEmpty) {
+      return _buildEmptyCard(
+        'No upcoming vaccinations',
+        'Stay up to date with your vaccination schedule',
+        Icons.vaccines_rounded,
+      );
+    }
+
+    // Show up to 3 upcoming vaccinations
+    final displayVaccinations = upcomingVaccinations.take(3).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        const Text(
+          'Upcoming Vaccinations',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A1A),
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Stay on top of your vaccination schedule',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF8A8A8A),
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Vaccination Cards
+        ...displayVaccinations.map((vaccination) {
+          final daysUntil = vaccination.scheduledDate.difference(now).inDays;
+          final timeUntil = daysUntil == 0 ? 'Today' : daysUntil == 1 ? 'Tomorrow' : '$daysUntil Days';
+
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 4),
+                ),
               ],
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F7),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE6E6E6)),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => context.push('/home/appointments'),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View All',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+            child: Row(
+              children: [
+                // Vaccine Icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8175D1).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.vaccines_rounded,
+                    color: Color(0xFF8175D1),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Vaccine Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vaccination.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                          letterSpacing: -0.2,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 12,
-                          color: Colors.grey[600],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Dose ${vaccination.doseNumber}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF8A8A8A),
+                          letterSpacing: -0.2,
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Due Date
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8175D1).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    timeUntil,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF8175D1),
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildLatestBlogsSection() {
+    // Sample blog data
+    final blogs = [
+      {
+        'title': 'Understanding Your Blood Pressure Readings',
+        'excerpt': 'Learn what your blood pressure numbers mean and how to maintain healthy levels for better heart health.',
+        'author': 'Dr. Sarah Johnson',
+        'tags': ['Heart Health', 'Prevention'],
+        'imageColor': const Color(0xFFE3F2FD), // Light blue
+      },
+      {
+        'title': 'The Importance of Regular Health Screenings',
+        'excerpt': 'Discover why preventive screenings are crucial for early detection and maintaining long-term wellness.',
+        'author': 'Dr. Michael Chen',
+        'tags': ['Prevention', 'Screening'],
+        'imageColor': const Color(0xFFF3E5F5), // Light purple
+      },
+      {
+        'title': 'Nutrition Tips for Managing Diabetes',
+        'excerpt': 'Practical dietary advice to help manage blood sugar levels and improve overall quality of life.',
+        'author': 'Dr. Emily Rodriguez',
+        'tags': ['Diabetes', 'Nutrition'],
+        'imageColor': const Color(0xFFE8F5E8), // Light green
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        const Text(
+          'Latest Blogs',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A1A),
+            letterSpacing: -0.3,
+          ),
         ),
-        const SizedBox(height: 20),
-        _buildAppointmentCard(
-          doctor: 'Dr. Sarah Johnson',
-          specialty: 'General Practitioner',
-          type: 'General Checkup',
-          clinic: 'City Medical Center',
-          date: 'Today',
-          time: '2:30 PM',
-          status: 'confirmed',
+        const SizedBox(height: 6),
+        const Text(
+          'Health and wellness articles for you',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF8A8A8A),
+            letterSpacing: -0.2,
+          ),
         ),
-        const SizedBox(height: 12),
-        _buildAppointmentCard(
-          doctor: 'Dr. Michael Chen',
-          specialty: 'Dentist',
-          type: 'Dental Cleaning',
-          clinic: 'Smile Dental Clinic',
-          date: 'Tomorrow',
-          time: '10:00 AM',
-          status: 'upcoming',
+        const SizedBox(height: 24),
+
+        // Blog Cards
+        _buildBlogCard(
+          title: 'Understanding Your Blood Pressure Readings',
+          excerpt: 'Learn what your blood pressure numbers mean and how to maintain healthy levels for better heart health.',
+          author: 'Dr. Sarah Johnson',
+          tags: ['Heart Health', 'Prevention'],
+          imageColor: const Color(0xFFE3F2FD),
         ),
-        const SizedBox(height: 12),
-        _buildAppointmentCard(
-          doctor: 'Dr. Emily Roberts',
-          specialty: 'Cardiologist',
-          type: 'Heart Checkup',
-          clinic: 'Heart Care Hospital',
-          date: 'Dec 2',
-          time: '3:00 PM',
-          status: 'upcoming',
+        const SizedBox(height: 24),
+        _buildBlogCard(
+          title: 'The Importance of Regular Health Screenings',
+          excerpt: 'Discover why preventive screenings are crucial for early detection and maintaining long-term wellness.',
+          author: 'Dr. Michael Chen',
+          tags: ['Prevention', 'Screening'],
+          imageColor: const Color(0xFFF3E5F5),
+        ),
+        const SizedBox(height: 24),
+        _buildBlogCard(
+          title: 'Nutrition Tips for Managing Diabetes',
+          excerpt: 'Practical dietary advice to help manage blood sugar levels and improve overall quality of life.',
+          author: 'Dr. Emily Rodriguez',
+          tags: ['Diabetes', 'Nutrition'],
+          imageColor: const Color(0xFFE8F5E8),
         ),
       ],
     );
   }
 
-  Widget _buildAppointmentCard({
-    required String doctor,
-    required String specialty,
-    required String type,
-    required String clinic,
-    required String date,
-    required String time,
-    required String status,
+  Widget _buildBlogCard({
+    required String title,
+    required String excerpt,
+    required String author,
+    required List<String> tags,
+    required Color imageColor,
   }) {
-    Color statusColor;
-    String statusText;
-    IconData statusIcon;
+    return Builder(
+      builder: (context) => Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: const Color(0xFFE4E6EB), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Image Area
+            Container(
+              height: 160,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: imageColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Placeholder content - could be an image
+                  Center(
+                    child: Icon(
+                      Icons.article_rounded,
+                      size: 48,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
 
-    switch (status) {
-      case 'confirmed':
-        statusColor = const Color(0xFF4CAF50);
-        statusText = 'Confirmed';
-        statusIcon = Icons.check_circle_rounded;
-        break;
-      case 'upcoming':
-        statusColor = const Color(0xFF8175D1);
-        statusText = 'Scheduled';
-        statusIcon = Icons.schedule_rounded;
-        break;
-      default:
-        statusColor = Colors.grey;
-        statusText = 'Pending';
-        statusIcon = Icons.access_time_rounded;
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEEEEEE)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.push('/home/appointments'),
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
+                  // Floating Author Avatar
+                  Positioned(
+                    bottom: 16,
+                    right: 20,
+                    child: Container(
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF8175D1),
+                        color: Colors.white,
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFE0E0E0),
+                          width: 2,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8175D1).withOpacity(0.2),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 8,
-                            offset: const Offset(0, 3),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: const Icon(
                         Icons.person_rounded,
-                        color: Colors.white,
-                        size: 22,
+                        color: Color(0xFF6A6A6A),
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            doctor,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                              letterSpacing: -0.2,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            specialty,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey[600],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            statusIcon,
-                            size: 11,
-                            color: statusColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            statusText,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: statusColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFEEEEEE)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    date,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    time,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.medical_services_rounded,
-                      size: 13,
-                      color: const Color(0xFF8175D1),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      type,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const Spacer(),
-                    Icon(
-                      Icons.location_on_rounded,
-                      size: 13,
-                      color: Colors.grey[500],
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        clinic,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[600],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Divider(height: 1, color: Colors.grey.shade200),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {},
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFAFAFA),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFEEEEEE)),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.call_rounded,
-                                  size: 14,
-                                  color: Color(0xFF8175D1),
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Call',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF8175D1),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {},
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8175D1),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      const Color(0xFF8175D1).withOpacity(0.25),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'View Details',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVaccinationsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Vaccinations',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF8175D1),
-                letterSpacing: -0.3,
+                  ),
+                ],
               ),
             ),
-            TextButton(
-              onPressed: () => context.push('/home/vaccinations'),
-              child: Text(
-                'View All',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+
+            // Content Area
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Blog Title
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A1A),
+                      letterSpacing: -0.3,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Short Excerpt
+                  Text(
+                    excerpt,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF8A8A8A),
+                      letterSpacing: -0.2,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Tags
+                  Row(
+                    children: tags.map((tag) => Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFEFEF),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF6A6A6A),
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      // Read More Button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // Navigate to blog detail screen
+                            context.push('/home/blog/${title.replaceAll(' ', '-').toLowerCase()}', extra: {
+                              'title': title,
+                              'excerpt': excerpt,
+                              'author': author,
+                              'tags': tags,
+                              'imageColor': imageColor,
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8175D1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Read More',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Save Button
+                      _buildSaveButton(title),
+
+                      const SizedBox(width: 8),
+
+                      // Share Button
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            // Share the article
+                            Share.share(
+                              'Check out this health article: "$title" by $author\n\n$excerpt',
+                              subject: title,
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.share_rounded,
+                            color: Color(0xFF6A6A6A),
+                            size: 20,
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _buildVaccinationCard('COVID-19 Booster', 'Dose 3', 'Completed', true),
-        const SizedBox(height: 12),
-        _buildVaccinationCard('Flu Shot', '2024', 'Due Soon', false),
-      ],
+      ),
     );
   }
 
-  Widget _buildVaccinationCard(
-      String name, String dose, String status, bool completed) {
+  Widget _buildSaveButton(String title) {
+    return Consumer(
+      builder: (context, ref, child) {
+        // Simple state management for saved articles (in real app, use persistent storage)
+        final savedArticles = ref.watch(savedArticlesProvider);
+        final isSaved = savedArticles.contains(title);
+
+        return Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isSaved ? const Color(0xFF8175D1).withOpacity(0.1) : const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            onPressed: () {
+              // Toggle save state
+              if (isSaved) {
+                ref.read(savedArticlesProvider.notifier).removeArticle(title);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Removed "$title" from saved articles'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                ref.read(savedArticlesProvider.notifier).addArticle(title);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Saved "$title" to your articles'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: isSaved ? const Color(0xFF8175D1) : const Color(0xFF6A6A6A),
+              size: 20,
+            ),
+            padding: EdgeInsets.zero,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingCard(String message) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: completed ? const Color(0xFF8175D1) : Colors.grey[300],
-              shape: BoxShape.circle,
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8175D1)),
             ),
           ),
           const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  dose,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: completed
-                  ? const Color(0xFF8175D1).withOpacity(0.1)
-                  : Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFFF6B6B),
+            size: 24,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: completed ? const Color(0xFF8175D1) : Colors.orange,
+              message,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF8A8A8A),
+                letterSpacing: -0.2,
               ),
             ),
           ),
@@ -1295,17 +985,59 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildSectionDivider() {
+  Widget _buildEmptyCard(String title, String subtitle, IconData icon) {
     return Container(
-      height: 1,
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.transparent,
-            const Color(0xFFE8E8E8),
-            Colors.transparent,
-          ],
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8175D1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFF8175D1),
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1A1A1A),
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8A8A8A),
+              letterSpacing: -0.2,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
